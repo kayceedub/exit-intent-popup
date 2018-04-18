@@ -18,6 +18,7 @@ window.bioEp = {
     cookieExp: 30,
     showOncePerSession: false,
     onPopup: null,
+    prePopupCheck: null,
 
     // Object for handling cookies, taken from QuirksMode
     // http://www.quirksmode.org/js/cookies.html
@@ -138,6 +139,15 @@ window.bioEp = {
     // Show the popup
     showPopup: function() {
         if(this.shown) return;
+        var prePopupCheck;
+
+        if(typeof this.prePopupCheck === "function") {
+            prePopupCheck = this.prePopupCheck();
+        }else{
+            prePopupCheck = true;
+        }
+
+        if (prePopupCheck == false) return;
 
         this.bgEl.style.display = "block";
         this.popupEl.style.display = "block";
@@ -218,35 +228,40 @@ window.bioEp = {
             obj.attachEvent("on" + event, callback);
     },
 
+    bind_show_popup: function(e) {
+        e = e ? e : window.event;
+
+        // If this is an autocomplete element.
+        if(e.target.tagName.toLowerCase() == "input")
+            return;
+
+        // Get the current viewport width.
+        var vpWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+
+        // If the current mouse X position is within 50px of the right edge
+        // of the viewport, return.
+        if(e.clientX >= (vpWidth - 50))
+            return;
+
+                // If the current mouse Y position is not within 50px of the top
+                // edge of the viewport, return.
+                if(e.clientY >= 50)
+                    return;
+
+        // Reliable, works on mouse exiting window and
+        // user switching active program
+        var from = e.relatedTarget || e.toElement;
+
+        if(!from)
+            bioEp.showPopup();
+    },
+
+
     // Load event listeners for the popup
     loadEvents: function() {
+
         // Track mouseout event on document
-        this.addEvent(document, "mouseout", function(e) {
-            e = e ? e : window.event;
-
-            // If this is an autocomplete element.
-            if(e.target.tagName.toLowerCase() == "input")
-                return;
-
-            // Get the current viewport width.
-            var vpWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-
-            // If the current mouse X position is within 50px of the right edge
-            // of the viewport, return.
-            if(e.clientX >= (vpWidth - 50))
-                return;
-
-            // If the current mouse Y position is not within 50px of the top
-            // edge of the viewport, return.
-            if(e.clientY >= 50)
-                return;
-
-            // Reliable, works on mouse exiting window and
-            // user switching active program
-            var from = e.relatedTarget || e.toElement;
-            if(!from)
-                bioEp.showPopup();
-        }.bind(this));
+        this.addEvent(document, "mouseout", this.bind_show_popup);
 
         // Handle the popup close button
         this.addEvent(this.closeBtnEl, "click", function() {
@@ -257,6 +272,14 @@ window.bioEp = {
         this.addEvent(window, "resize", function() {
             bioEp.scalePopup();
         });
+    },
+
+    // unload event listener for the popup
+    unloadEvents: function() {
+        if(document.removeEventListener)
+          document.removeEventListener("mouseout", this.bind_show_popup );
+        else if(document.detachEvent)
+          document.detachEvent("onmouseout", this.bind_show_popup );
     },
 
     // Set user defined options for the popup
@@ -271,6 +294,7 @@ window.bioEp = {
         this.cookieExp = (typeof opts.cookieExp === 'undefined') ? this.cookieExp : opts.cookieExp;
         this.showOncePerSession = (typeof opts.showOncePerSession === 'undefined') ? this.showOncePerSession : opts.showOncePerSession;
         this.onPopup = (typeof opts.onPopup === 'undefined') ? this.onPopup : opts.onPopup;
+        this.prePopupCheck = (typeof opts.prePopupCheck === 'undefined') ? this.prePopupCheck : opts.prePopupCheck;
     },
 
     // Ensure the DOM has loaded
